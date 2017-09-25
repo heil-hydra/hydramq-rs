@@ -7,7 +7,11 @@ use ::codec::util::*;
 pub struct BinaryMessageDecoder {}
 
 impl BinaryMessageDecoder {
-    pub fn decode<B>(bytes: &mut B) -> Message where B: bytes::Buf {
+    fn new() -> BinaryMessageDecoder {
+        BinaryMessageDecoder{}
+    }
+
+    pub fn decode_message<B>(bytes: &mut B) -> Message where B: bytes::Buf {
         BinaryMessageDecoder {}.decode_message(bytes)
     }
 }
@@ -90,7 +94,7 @@ impl MessageDecoder for BinaryMessageDecoder {
     }
 }
 
-trait MessageDecoder {
+pub trait MessageDecoder {
     fn decode_message<B>(&self, bytes: &mut B) -> Message where B: bytes::Buf;
 
     fn decode_list<B>(&self, bytes: &mut B) -> List where B: bytes::Buf;
@@ -202,7 +206,7 @@ mod tests {
 
     fn decode(buffer: bytes::BytesMut) -> Message {
         let mut bytes = buffer.freeze().into_buf();
-        BinaryMessageDecoder::decode(&mut bytes)
+        BinaryMessageDecoder::decode_message(&mut bytes)
     }
 
     fn example() -> Message {
