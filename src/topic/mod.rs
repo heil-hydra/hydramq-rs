@@ -1,9 +1,10 @@
-use Message;
-use Value;
 
 use std::fs::{self,OpenOptions, File};
 use std::path::{Path, PathBuf};
 use std::io::{self, Seek, SeekFrom, Write};
+
+use message::Message;
+use message::Value;
 
 pub struct SegmentNumber(i32);
 
@@ -67,7 +68,7 @@ impl FileSegment {
 
 impl Segment for FileSegment {
     fn write(&mut self, message: &Message) {
-        if let &Value::String(ref value) = message.body() {
+        if let Some(&Value::String(ref value)) = message.body() {
             self.dat.write(value.as_bytes()).expect("Error writing bytes to file");
         }
     }
@@ -95,7 +96,7 @@ mod test {
         let mut segment = FileSegment::new(dat, idx);
 
         for i in 0..1000 {
-            let message = Message::with_body(format!("Hello{}\n", i)).build();
+            let message = Message::new().with_body(format!("Hello{}\n", i)).build();
             segment.write(&message);
         }
 

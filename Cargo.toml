@@ -1,8 +1,10 @@
 [package]
 name = "hydramq"
 version = "0.1.0"
-authors = ["jimmie"]
+authors = ["Jimmie Fulton"]
 
 [dependencies]
+bitflags = "1.0.0"
+bytes = "0.4.5"
 linked-hash-map = "0.5.0"
 rmp = "0.8.7"

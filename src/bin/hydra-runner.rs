@@ -1,16 +1,61 @@
 extern crate hydramq;
+extern crate bytes;
+
+use bytes::{IntoBuf};
 
 use hydramq::topic::{Segment, FileSegment};
-use hydramq::{Message};
-use std::path::PathBuf;
+use hydramq::message::{Message, List, Map};
+use hydramq::codec::encoder::BinaryMessageEncoder;
+use hydramq::codec::decoder::BinaryMessageDecoder;
 
 
 fn main() {
 
-    let mut segment = FileSegment::with_directory(PathBuf::from("sample"));
+    let message = example();
 
-    for i in 0..1_000_000 {
-        let message = Message::with_body(format!("Hello {}\n", i)).build();
-        segment.write(&message);
+    for _ in 0..1_000_000 {
+        let _ = encode_decode(&message);
     }
+}
+
+fn encode_decode(message: &Message) -> Message {
+    let buffer = encode(message);
+    decode(buffer)
+}
+
+fn encode(message: &Message) -> bytes::BytesMut {
+    let mut buffer = bytes::BytesMut::with_capacity(150);
+    BinaryMessageEncoder::encode(&message, &mut buffer);
+    buffer
+}
+
+fn decode(buffer: bytes::BytesMut) -> Message {
+    let mut bytes = buffer.freeze().into_buf();
+    BinaryMessageDecoder::decode(&mut bytes)
+}
+
+fn example() -> Message {
+    Message::new()
+        .with_property("fname", "Jimmie")
+        .with_property("lname", "Fulton")
+        .with_property("age", 42)
+        .with_property("temp", 96.8)
+        .with_property("vehicles", List::new()
+            .append("Aprilia")
+            .append("Infiniti")
+            .build()
+        )
+        .with_property("siblings",
+                       Map::new()
+                           .insert("brothers",
+                                   List::new()
+                                       .append("Jason").build()
+                           )
+                           .insert("sisters",
+                                   List::new()
+                                       .append("Laura")
+                                       .append("Sariah")
+                                       .build()
+                           ).build()
+        ).build()
 }
