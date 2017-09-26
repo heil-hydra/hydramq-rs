@@ -163,7 +163,7 @@ mod tests {
     fn binary_encode_empty_message() {
         let mut buffer = BytesMut::with_capacity(100);
         let message = Message::new().build();
-        BinaryMessageEncoder::encode(&message, &mut buffer);
+        BinaryMessageEncoder::encode_message(&message, &mut buffer);
 
         let mut bytes = Cursor::new(buffer.freeze());
         assert!(bytes.has_remaining());
@@ -176,7 +176,7 @@ mod tests {
     fn binary_encode_string_message() {
         let mut buffer = BytesMut::new();
         let message = Message::new().with_body("Hello").build();
-        BinaryMessageEncoder::encode(&message, &mut buffer);
+        BinaryMessageEncoder::encode_message(&message, &mut buffer);
         assert_eq!(buffer.len(), 14);
         let mut expected_buffer = BytesMut::with_capacity(13);
         expected_buffer.put_u32::<LittleEndian>(util::Flags::HAS_BODY.bits());
@@ -213,7 +213,6 @@ mod tests {
                                            .build()
                                ).build()
             ).build();
-        BinaryMessageEncoder::encode(&message, &mut buffer);
-        eprintln!("buffer = {:?}", buffer);
+        BinaryMessageEncoder::encode_message(&message, &mut buffer);
     }
 }

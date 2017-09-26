@@ -157,29 +157,7 @@ mod tests {
 
     #[test]
     fn decode_kitchen_sink() {
-        let input = Message::new()
-            .with_property("fname", "Jimmie")
-            .with_property("lname", "Fulton")
-            .with_property("age", 42)
-            .with_property("temp", 96.8)
-            .with_property("vehicles", List::new()
-                .append("Aprilia")
-                .append("Infiniti")
-                .build()
-            )
-            .with_property("siblings",
-                           Map::new()
-                               .insert("brothers",
-                                       List::new()
-                                           .append("Jason").build()
-                               )
-                               .insert("sisters",
-                                       List::new()
-                                           .append("Laura")
-                                           .append("Sariah")
-                                           .build()
-                               ).build()
-            ).build();
+        let input = example();
 
         let output = encode_decode(&input);
         assert_eq!(input, output);
@@ -200,7 +178,7 @@ mod tests {
 
     fn encode(message: &Message) -> bytes::BytesMut {
         let mut buffer = bytes::BytesMut::new();
-        ::codec::encoder::BinaryMessageEncoder::encode(&message, &mut buffer);
+        ::codec::encode_message(&message, &mut buffer);
         buffer
     }
 

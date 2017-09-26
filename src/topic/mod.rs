@@ -6,6 +6,13 @@ use std::io::{self, Seek, SeekFrom, Write};
 use message::Message;
 use message::Value;
 
+use bytes::{BytesMut, BufMut, Buf, IntoBuf, LittleEndian};
+
+use ::codec::encode_message;
+use ::codec::decode_message;
+
+pub mod segment;
+
 pub struct SegmentNumber(i32);
 
 impl Into<String> for SegmentNumber {
@@ -68,10 +75,21 @@ impl FileSegment {
 
 impl Segment for FileSegment {
     fn write(&mut self, message: &Message) {
-        if let Some(&Value::String(ref value)) = message.body() {
-            self.dat.write(value.as_bytes()).expect("Error writing bytes to file");
-        }
+        let mut header = BytesMut::with_capacity(4);
+        let mut contents = BytesMut::with_capacity(200);
+        let message_start = self.dat.seek(SeekFrom::End(0)).unwrap();
+        encode_message(message, &mut contents);
+        header.put_u32::<LittleEndian>(contents.len() as u32);
+        let mut header = header.freeze();
+        let mut contents = contents.freeze();
+        self.dat.write_all(header.as_ref()).unwrap();
+        self.dat.write_all(contents.as_ref()).unwrap();
+        self.idx.seek(SeekFrom::End(0)).unwrap();
+        let mut message_start_buffer = BytesMut::with_capacity(4);
+        message_start_buffer.put_u32::<LittleEndian>(message_start as u32);
+        self.idx.write_all(&mut message_start_buffer);
     }
+
 }
 
 #[cfg(test)]
@@ -114,5 +132,14 @@ mod test {
         assert!(dat_file.exists());
         assert!(idx_file.exists());
         fs::remove_dir_all(segment_dir).expect("Error deleting segment directory");
+    }
+
+    #[test]
+    fn create_segment2() {
+        let mut segment = FileSegment::with_directory(PathBuf::from("segment"));
+        let message = Message::new()
+            .with_body("Hello, World")
+            .build();
+        segment.write(&message);
     }
 }
