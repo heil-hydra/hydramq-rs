@@ -18,7 +18,7 @@ impl BinaryMessageEncoder {
         BinaryMessageEncoder {}
     }
 
-    pub fn encode(message: &Message, buffer: &mut BytesMut) {
+    pub fn encode_message(message: &Message, buffer: &mut BytesMut) {
         BinaryMessageEncoder {}.encode_message(message, buffer);
     }
 }

@@ -5,9 +5,6 @@ use bytes::{IntoBuf};
 
 use hydramq::topic::{Segment, FileSegment};
 use hydramq::message::{Message, List, Map};
-use hydramq::codec::encoder::BinaryMessageEncoder;
-use hydramq::codec::decoder::BinaryMessageDecoder;
-
 
 fn main() {
 
@@ -25,13 +22,13 @@ fn encode_decode(message: &Message) -> Message {
 
 fn encode(message: &Message) -> bytes::BytesMut {
     let mut buffer = bytes::BytesMut::with_capacity(150);
-    BinaryMessageEncoder::encode(&message, &mut buffer);
+    hydramq::codec::encode_message(&message, &mut buffer);
     buffer
 }
 
 fn decode(buffer: bytes::BytesMut) -> Message {
     let mut bytes = buffer.freeze().into_buf();
-    BinaryMessageDecoder::decode(&mut bytes)
+    hydramq::codec::decode_message(&mut bytes)
 }
 
 fn example() -> Message {
