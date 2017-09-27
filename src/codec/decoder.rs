@@ -1,5 +1,5 @@
-use bytes::{self, BufMut, IntoBuf};
-use std::io::{Cursor, Read};
+use bytes;
+use std::io::{Read};
 
 use ::message::{Message, Value, List, Map};
 use ::codec::util::*;
@@ -7,9 +7,6 @@ use ::codec::util::*;
 pub struct BinaryMessageDecoder {}
 
 impl BinaryMessageDecoder {
-    fn new() -> BinaryMessageDecoder {
-        BinaryMessageDecoder{}
-    }
 
     pub fn decode_message<B>(bytes: &mut B) -> Message where B: bytes::Buf {
         BinaryMessageDecoder {}.decode_message(bytes)
@@ -19,10 +16,10 @@ impl BinaryMessageDecoder {
 impl MessageDecoder for BinaryMessageDecoder {
     fn decode_message<B>(&self, bytes: &mut B) -> Message where B: bytes::Buf {
         let mut builder = Message::new();
-        let flags = Flags::from_bits(bytes.get_u32::<bytes::LittleEndian>()).unwrap();
+        let flags = Flags::from_bits(bytes.get_u32::<bytes::LittleEndian>()).expect("Error reading flags");
         if flags.contains(Flags::HAS_PROPERTIES) {
             let property_count = bytes.get_u32::<bytes::LittleEndian>();
-            for i in 0..property_count {
+            for _ in 0..property_count {
                 let key = self.decode_string(bytes);
                 let value = self.decode_value(bytes);
                 builder = builder.with_property(key, value);
@@ -118,6 +115,8 @@ pub trait MessageDecoder {
 mod tests {
     use super::*;
 
+    use bytes::{BufMut, IntoBuf};
+
     #[test]
     fn read_length_prefixed_string() {
         let mut buffer = bytes::BytesMut::with_capacity(12);
@@ -152,7 +151,7 @@ mod tests {
         let message = Message::with_property("f", 9).build();
         let buffer = encode(&message);
         eprintln!("buffer = {:?}", buffer);
-        let output = encode_decode(&message);
+        let _ = encode_decode(&message);
     }
 
     #[test]
@@ -167,12 +166,12 @@ mod tests {
     fn test_speed() {
         let message = example();
         for _ in 0..10_000 {
-            let output = encode_decode(&message);
+            let _ = encode_decode(&message);
         }
     }
 
     fn encode_decode(message: &Message) -> Message {
-        let mut buffer = encode(message);
+        let buffer = encode(message);
         decode(buffer)
     }
 

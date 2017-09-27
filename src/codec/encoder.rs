@@ -2,14 +2,10 @@ use ::message::List;
 use ::message::Map;
 use ::message::Message;
 use ::message::Value;
-use ::message;
 
 use ::codec::util;
 
-use std::io::Cursor;
-use std::io::Read;
-
-use bytes::{Bytes, BytesMut, Buf, BufMut, LittleEndian};
+use bytes::{BytesMut, BufMut, LittleEndian};
 
 pub struct BinaryMessageEncoder();
 
@@ -158,6 +154,8 @@ trait MessageEncoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Buf;
+    use std::io::Cursor;
 
     #[test]
     fn binary_encode_empty_message() {

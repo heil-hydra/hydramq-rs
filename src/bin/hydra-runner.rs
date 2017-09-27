@@ -3,7 +3,6 @@ extern crate bytes;
 
 use bytes::{IntoBuf};
 
-use hydramq::topic::{Segment, FileSegment};
 use hydramq::message::{Message, List, Map};
 
 fn main() {
@@ -21,7 +20,7 @@ fn encode_decode(message: &Message) -> Message {
 }
 
 fn encode(message: &Message) -> bytes::BytesMut {
-    let mut buffer = bytes::BytesMut::with_capacity(150);
+    let mut buffer = bytes::BytesMut::with_capacity(300);
     hydramq::codec::encode_message(&message, &mut buffer);
     buffer
 }

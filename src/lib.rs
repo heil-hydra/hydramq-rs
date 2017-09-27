@@ -1,5 +1,6 @@
 extern crate bytes;
 extern crate linked_hash_map;
+extern crate uuid;
 #[macro_use]
 extern crate bitflags;
 

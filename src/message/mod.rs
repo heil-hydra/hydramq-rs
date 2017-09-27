@@ -226,7 +226,6 @@ impl From<Map> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitflags;
 
     #[test]
     fn it_works() {
