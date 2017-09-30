@@ -2,7 +2,7 @@ use std::fs::{self, OpenOptions, File};
 use std::path::{Path, PathBuf};
 use std::io::{self, Seek, SeekFrom, Write};
 
-use message::Message;
+use message::{self, Message};
 
 use bytes::{BytesMut, BufMut, Buf, IntoBuf, LittleEndian};
 
@@ -11,6 +11,7 @@ use codec::decode_message;
 
 use std::cell::RefCell;
 use std::ops::Range;
+use std::iter::Skip;
 
 pub mod segment;
 
@@ -92,14 +93,8 @@ impl FileSegment {
         Ok(())
     }
 
-    fn iter(&self) -> FileSegmentIter {
+    pub fn iter(&self) -> FileSegmentIter {
         let range = Range { start: 0, end: self.size() };
-        FileSegmentIter { range, segment: &self }
-    }
-
-    fn iter_range(&self, range: ::std::ops::Range<u32>) -> FileSegmentIter {
-        let Range { start, end } = range;
-        let range = Range{ start, end: ::std::cmp::max(end, self.size()) };
         FileSegmentIter { range, segment: &self }
     }
 }
@@ -107,7 +102,11 @@ impl FileSegment {
 impl Segment for FileSegment {
     fn write(&self, message: &Message) {
         let mut header = BytesMut::with_capacity(4);
-        let mut contents = BytesMut::with_capacity(200);
+        use ::message::MessageVisitor;
+        let calculator = ::message::BinaryFormatSizeCalculator{};
+        let mut size = 0;
+        calculator.visit_message(&message, &mut size);
+        let mut contents = BytesMut::with_capacity(size);
         let mut dat_borrow = self.dat.borrow_mut();
         let message_start = dat_borrow.seek(SeekFrom::End(0)).unwrap();
         encode_message(message, &mut contents);
@@ -161,7 +160,6 @@ impl<'a> Iterator for FileSegmentIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(index) = self.range.next() {
-            eprintln!("index = {:?}", index);
             let result = self.segment.read(index);
             return match result {
                 Some(message) => Some((index, message)),
@@ -170,6 +168,23 @@ impl<'a> Iterator for FileSegmentIter<'a> {
         }
         None
     }
+
+    fn nth(&mut self, mut n: usize) -> Option<Self::Item> {
+        match self.range.nth(n) {
+            Some(index) => {
+                let result = self.segment.read(index);
+                match result {
+                    Some(message) => Some((index, message)),
+                    None => None,
+                }
+            }
+            None => None,
+        }
+    }
+//
+//    fn skip(self, n: usize) -> Skip<Self> where Self: Sized {
+//        unimplemented!()
+//    }
 }
 
 impl<'a> DoubleEndedIterator for FileSegmentIter<'a> {
@@ -329,38 +344,58 @@ mod test {
 
     #[test]
     fn iterate_file_segment_in_reverse() {
-        let segment = FileSegment::with_temp_directory();
-        for i in 0..100 {
-            let message = Message::with_body("Hello").with_property("iter", i).build();
-            segment.write(&message);
-        }
-
+        let segment = example_segment();
         let mut counter = 100u32;
-
         for (offset, message) in segment.iter().rev() {
             eprintln!("offset: {}, iter = {:?}", offset, message.properties().get("iter").unwrap());
             counter -= 1;
         }
-
         assert_eq!(counter, 0);
-
         segment.delete().unwrap();
     }
 
     #[test]
-    fn iterate_in_range() {
+    fn iterate_skip_messages() {
+        let segment = example_segment();
+        for (index, message) in segment
+            .iter()
+            .skip(10).take_while(|&(index, _)| index < 15) {
+            eprintln!("index = {}, message = {:?}", index, message);
+        }
+        segment.delete().unwrap();
+    }
+
+    #[test]
+    fn iterate_nth_messages() {
+        let segment = example_segment();
+        let mut counter = 0;
+        if let Some((index, _)) = segment
+            .iter()
+            .nth(10) {
+            eprintln!("index = {:?}", index);
+        }
+
+        eprintln!("counter = {:?}", counter);
+        segment.delete().unwrap();
+    }
+
+    #[test]
+    fn iterate_chain() {
+        let segment1 = example_segment();
+        let segment2 = example_segment();
+
+       
+        for message in segment1.iter().skip(50).chain(segment2.iter()).map(|(_ ,message)| message) {
+            eprintln!("message = {:?}", message);
+        }
+    }
+
+    fn example_segment() -> FileSegment {
         let segment = FileSegment::with_temp_directory();
         for i in 0..100 {
             let message = Message::with_body("Hello").with_property("iter", i).build();
             segment.write(&message);
         }
-        
-        let mut counter = 0u32;
-        for (offset, message) in segment.iter_range(50..100).rev() {
-            eprintln!("off = {:?}", message.properties().get("iter").unwrap());
-            counter += 1;
-        }
-
-        assert_eq!(counter, 50);
+        segment
     }
 }

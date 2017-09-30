@@ -20,6 +20,7 @@ fn encode_decode(message: &Message) -> Message {
 }
 
 fn encode(message: &Message) -> bytes::BytesMut {
+    let mut size = 0;
     let mut buffer = bytes::BytesMut::with_capacity(300);
     hydramq::codec::encode_message(&message, &mut buffer);
     buffer

@@ -1,3 +1,5 @@
+mod message_set;
+
 use std;
 use std::fmt::{self};
 
@@ -223,6 +225,126 @@ impl From<Map> for Value {
     }
 }
 
+pub trait MessageVisitor {
+    type Output;
+
+    fn visit_message(&self, value: &Message, buffer: &mut Self::Output);
+
+    fn visit_map(&self, value: &Map, buffer: &mut Self::Output);
+
+    fn visit_list(&self, value: &List, buffer: &mut Self::Output);
+
+    fn visit_value(&self, value: &Value, buffer: &mut Self::Output);
+
+    fn visit_bytes(&self, value: &Vec<u8>, buffer: &mut Self::Output);
+
+    fn visit_int32(&self, value: i32, buffer: &mut Self::Output);
+
+    fn visit_int64(&self, value: i64, buffer: &mut Self::Output);
+
+    fn visit_float64(&self, value: f64, buffer: &mut Self::Output);
+
+    fn visit_boolean(&self, _value: bool, _buffer: &mut Self::Output);
+
+    fn visit_string(&self, _value: &String, _buffer: &mut Self::Output);
+
+    fn visit_null(&self, _buffer: &mut Self::Output);
+}
+
+pub struct BinaryFormatSizeCalculator {
+
+}
+
+impl MessageVisitor for BinaryFormatSizeCalculator {
+    type Output = usize;
+
+    fn visit_message(&self, message: &Message, buffer: &mut Self::Output) {
+        *buffer += 4;
+        for (key, value) in message.properties().iter() {
+            self.visit_string(key, buffer);
+            self.visit_value(value, buffer);
+        }
+        if let Some(value) = message.body() {
+            self.visit_value(value, buffer);
+        }
+    }
+
+    fn visit_map(&self, map: &Map, buffer: &mut Self::Output) {
+        *buffer += map.len();
+        for (key, value) in map.iter() {
+            self.visit_string(key, buffer);
+            self.visit_value(value, buffer);
+        }
+    }
+
+    fn visit_list(&self, list: &List, buffer: &mut Self::Output) {
+        *buffer += list.len();
+        for value in list.iter() {
+            self.visit_value(value, buffer);
+        }
+    }
+
+    fn visit_value(&self, value: &Value, buffer: &mut Self::Output) {
+        *buffer += 1;
+        match value {
+            &Value::Null => {
+                self.visit_null(buffer)
+            },
+            &Value::String(ref value) => {
+                self.visit_string(value, buffer);
+            }
+            &Value::Int32(value) => {
+                self.visit_int32(value, buffer);
+            }
+            &Value::Int64(value) => {
+                self.visit_int64(value, buffer);
+            }
+            &Value::Float64(value) => {
+                self.visit_float64(value, buffer);
+            }
+            &Value::Boolean(value) => {
+                self.visit_boolean(value, buffer);
+            }
+            &Value::Bytes(ref value) => {
+                self.visit_bytes(value, buffer);
+            }
+            &Value::Map(ref value) => {
+                self.visit_map(value, buffer);
+            }
+            &Value::List(ref value) => {
+                self.visit_list(value, buffer);
+            }
+        }
+    }
+
+    fn visit_bytes(&self, value: &Vec<u8>, buffer: &mut Self::Output) {
+        *buffer += 4 + value.len()
+    }
+
+    fn visit_int32(&self, _value: i32, buffer: &mut Self::Output) {
+        *buffer += 4;
+    }
+
+    fn visit_int64(&self, _value: i64, buffer: &mut Self::Output) {
+        *buffer += 8;
+    }
+
+    fn visit_float64(&self, _value: f64, buffer: &mut Self::Output) {
+        *buffer += 8;
+    }
+
+    fn visit_boolean(&self, value: bool, buffer: &mut Self::Output) {
+        *buffer += 1;
+    }
+
+    fn visit_string(&self, value: &String, buffer: &mut Self::Output) {
+        *buffer += 4 + value.len()
+    }
+
+    fn visit_null(&self, _buffer: &mut Self::Output) {
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -317,5 +439,50 @@ mod tests {
     #[test]
     pub fn examples() {
         
+    }
+
+    #[test]
+    fn binary_size_calulator() {
+        let calculator = BinaryFormatSizeCalculator{};
+        let message = Message::with_body("Hello").build();
+        let mut size = 0;
+        calculator.visit_message(&message, &mut size);
+        assert_eq!(size, 14);
+    }
+
+    #[test]
+    fn binary_size_calcuator_2() {
+        let calculator = BinaryFormatSizeCalculator{};
+        let message = example();
+        let mut size = 0;
+        calculator.visit_message(&message, &mut size);
+        eprintln!("size = {:?}", size);
+
+    }
+
+    fn example() -> Message {
+        Message::new()
+            .with_property("fname", "Jimmie")
+            .with_property("lname", "Fulton")
+            .with_property("age", 42)
+            .with_property("temp", 98.6)
+            .with_property("vehicles", List::new()
+                .append("Aprilia")
+                .append("Infiniti")
+                .build()
+            )
+            .with_property("siblings",
+                           Map::new()
+                               .insert("brothers",
+                                       List::new()
+                                           .append("Jason").build()
+                               )
+                               .insert("sisters",
+                                       List::new()
+                                           .append("Laura")
+                                           .append("Sariah")
+                                           .build()
+                               ).build()
+            ).build()
     }
 }

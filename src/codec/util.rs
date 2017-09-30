@@ -14,6 +14,7 @@ mod test {
     #[test]
     fn flags_empty() {
         let empty = Flags::empty();
+
         assert!(empty.is_empty());
     }
 
