@@ -1,5 +1,5 @@
 use std::slice::Iter;
-use ::message::Message;
+use message::Message;
 
 pub struct MessageSet {
     index: u64,
@@ -12,7 +12,11 @@ impl MessageSet {
     }
 
     pub fn iter(&self) -> MessageSetIter {
-        MessageSetIter { counter: 0, index: self.index, messages: &self.messages }
+        MessageSetIter {
+            counter: 0,
+            index: self.index,
+            messages: &self.messages,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -54,7 +58,10 @@ pub struct MessageSetBuilder {
 
 impl MessageSetBuilder {
     fn starting_at(index: u64) -> MessageSetBuilder {
-        MessageSetBuilder { index, messages: Vec::new() }
+        MessageSetBuilder {
+            index,
+            messages: Vec::new(),
+        }
     }
 
     fn append(mut self, message: Message) -> MessageSetBuilder {
@@ -63,7 +70,10 @@ impl MessageSetBuilder {
     }
 
     fn build(self) -> MessageSet {
-        MessageSet { index: self.index, messages: self.messages }
+        MessageSet {
+            index: self.index,
+            messages: self.messages,
+        }
     }
 }
 
@@ -75,7 +85,8 @@ mod tests {
     fn message_set_add() {
         let mut message_set = MessageSet::starting_at(50)
             .append(Message::with_body("Hello").build())
-            .append(Message::with_body("World").build()).build();
+            .append(Message::with_body("World").build())
+            .build();
 
         let mut builder2 = MessageSet::starting_at(60);
 

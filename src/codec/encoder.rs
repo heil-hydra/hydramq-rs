@@ -1,11 +1,12 @@
-use ::message::List;
-use ::message::Map;
-use ::message::Message;
-use ::message::Value;
+use message::List;
+use message::Map;
+use message::Message;
+use message::Value;
 
-use ::codec::util;
+use codec::util;
 
-use bytes::{BytesMut, BufMut, LittleEndian};
+use bytes::{BigEndian, BufMut, BytesMut};
+use uuid::Uuid;
 
 pub struct BinaryMessageEncoder();
 
@@ -21,15 +22,19 @@ impl BinaryMessageEncoder {
 
 impl MessageEncoder for BinaryMessageEncoder {
     fn encode_int32(&self, value: i32, buffer: &mut BytesMut) {
-        buffer.put_i32::<LittleEndian>(value);
+        buffer.put_i32::<BigEndian>(value);
     }
 
     fn encode_int64(&self, value: i64, buffer: &mut BytesMut) {
-        buffer.put_i64::<LittleEndian>(value);
+        buffer.put_i64::<BigEndian>(value);
+    }
+
+    fn encode_float32(&self, value: f32, buffer: &mut BytesMut) {
+        buffer.put_f32::<BigEndian>(value);
     }
 
     fn encode_float64(&self, value: f64, buffer: &mut BytesMut) {
-        buffer.put_f64::<LittleEndian>(value);
+        buffer.put_f64::<BigEndian>(value);
     }
 
     fn encode_boolean(&self, value: bool, buffer: &mut BytesMut) {
@@ -38,7 +43,7 @@ impl MessageEncoder for BinaryMessageEncoder {
 
     fn encode_string(&self, value: &String, buffer: &mut BytesMut) {
         buffer.reserve(value.len() + 4);
-        buffer.put_u32::<LittleEndian>(value.len() as u32);
+        buffer.put_u32::<BigEndian>(value.len() as u32);
         buffer.put_slice(value.as_bytes());
     }
 
@@ -51,7 +56,7 @@ impl MessageEncoder for BinaryMessageEncoder {
             flags.insert(util::Flags::HAS_BODY);
         }
         buffer.reserve(4);
-        buffer.put_u32::<LittleEndian>(flags.bits());
+        buffer.put_u32::<BigEndian>(flags.bits());
 
         if message.properties().len() > 0 {
             self.encode_map(message.properties(), buffer);
@@ -61,7 +66,6 @@ impl MessageEncoder for BinaryMessageEncoder {
             self.encode_value(message.body().unwrap(), buffer);
         }
     }
-
     fn encode_value(&self, value: &Value, buffer: &mut BytesMut) {
         buffer.reserve(8);
         match value {
@@ -78,48 +82,61 @@ impl MessageEncoder for BinaryMessageEncoder {
                 buffer.put_u8(3);
                 self.encode_int64(value, buffer);
             }
-            &Value::Float64(value) => {
+            &Value::Float32(value) => {
                 buffer.put_u8(4);
+                self.encode_float32(value, buffer);
+            }
+            &Value::Float64(value) => {
+                buffer.put_u8(5);
                 self.encode_float64(value, buffer);
             }
             &Value::Boolean(value) => {
-                buffer.put_u8(5);
+                buffer.put_u8(6);
                 self.encode_boolean(value, buffer);
             }
             &Value::Bytes(ref value) => {
-                buffer.put_u8(6);
-                self.encode_bytes(value, buffer);
-            }
-            &Value::Map(ref value) => {
                 buffer.put_u8(7);
-                self.encode_map(value, buffer);
+                self.encode_bytes(value, buffer);
             }
             &Value::List(ref value) => {
                 buffer.put_u8(8);
                 self.encode_list(value, buffer);
             }
+            &Value::Map(ref value) => {
+                buffer.put_u8(9);
+                self.encode_map(value, buffer);
+            }
+            &Value::Uuid(ref value) => {
+                buffer.put_u8(10);
+                self.encode_uuid(value, buffer);
+            }
         }
     }
+
     fn encode_map(&self, map: &Map, buffer: &mut BytesMut) {
         buffer.reserve(4);
-        buffer.put_u32::<LittleEndian>(map.len() as u32);
+        buffer.put_u32::<BigEndian>(map.len() as u32);
         for (key, value) in map.iter() {
             self.encode_string(key, buffer);
             self.encode_value(value, buffer);
         }
     }
-
     fn encode_list(&self, list: &List, buffer: &mut BytesMut) {
         buffer.reserve(4);
-        buffer.put_u32::<LittleEndian>(list.len() as u32);
+        buffer.put_u32::<BigEndian>(list.len() as u32);
         for item in list.iter() {
             self.encode_value(item, buffer);
         }
     }
     fn encode_bytes(&self, value: &Vec<u8>, buffer: &mut BytesMut) {
         buffer.reserve(value.len() + 4);
-        buffer.put_u32::<LittleEndian>(value.len() as u32);
+        buffer.put_u32::<BigEndian>(value.len() as u32);
         buffer.put_slice(value);
+    }
+
+    fn encode_uuid(&self, value: &Uuid, buffer: &mut BytesMut) {
+        buffer.reserve(16);
+        buffer.put_slice(value.as_bytes());
     }
 }
 
@@ -138,18 +155,20 @@ trait MessageEncoder {
 
     fn encode_int64(&self, value: i64, buffer: &mut BytesMut);
 
+    fn encode_float32(&self, value: f32, buffer: &mut BytesMut);
+
     fn encode_float64(&self, value: f64, buffer: &mut BytesMut);
 
     fn encode_boolean(&self, _value: bool, _buffer: &mut BytesMut);
 
     fn encode_string(&self, _value: &String, _buffer: &mut BytesMut);
 
+    fn encode_uuid(&self, value: &Uuid, buffer: &mut BytesMut);
+
     fn encode_null(&self, _buffer: &mut BytesMut) {
         unimplemented!()
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -165,7 +184,7 @@ mod tests {
 
         let mut bytes = Cursor::new(buffer.freeze());
         assert!(bytes.has_remaining());
-        let flags = util::Flags::from_bits(bytes.get_u32::<LittleEndian>()).unwrap();
+        let flags = util::Flags::from_bits(bytes.get_u32::<BigEndian>()).unwrap();
         assert!(flags.is_empty());
         assert!(!bytes.has_remaining());
     }
@@ -177,10 +196,10 @@ mod tests {
         BinaryMessageEncoder::encode_message(&message, &mut buffer);
         assert_eq!(buffer.len(), 14);
         let mut expected_buffer = BytesMut::with_capacity(13);
-        expected_buffer.put_u32::<LittleEndian>(util::Flags::HAS_BODY.bits());
+        expected_buffer.put_u32::<BigEndian>(util::Flags::HAS_BODY.bits());
         let body = "Hello";
         expected_buffer.put_u8(1);
-        expected_buffer.put_u32::<LittleEndian>(body.len() as u32);
+        expected_buffer.put_u32::<BigEndian>(body.len() as u32);
         expected_buffer.put_slice(body.as_bytes());
         assert_eq!(buffer, expected_buffer);
     }
@@ -193,24 +212,21 @@ mod tests {
             .with_property("lname", "Fulton")
             .with_property("age", 42)
             .with_property("temp", 96.8)
-            .with_property("vehicles", List::new()
-                .append("Aprilia")
-                .append("Infiniti")
-                .build()
+            .with_property(
+                "vehicles",
+                List::new().append("Aprilia").append("Infiniti").build(),
             )
-            .with_property("siblings",
-                           Map::new()
-                               .insert("brothers",
-                                       List::new()
-                                           .append("Jason").build()
-                               )
-                               .insert("sisters",
-                                       List::new()
-                                           .append("Laura")
-                                           .append("Sariah")
-                                           .build()
-                               ).build()
-            ).build();
+            .with_property(
+                "siblings",
+                Map::new()
+                    .insert("brothers", List::new().append("Jason").build())
+                    .insert(
+                        "sisters",
+                        List::new().append("Laura").append("Sariah").build(),
+                    )
+                    .build(),
+            )
+            .build();
         BinaryMessageEncoder::encode_message(&message, &mut buffer);
     }
 }

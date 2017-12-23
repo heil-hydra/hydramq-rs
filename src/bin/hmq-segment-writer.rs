@@ -7,7 +7,7 @@ fn main() {
 
     let segment = FileSegment::with_directory("example");
     let message = example();
-    for _i in 0..10_000_000 {
+    for _i in 0..1_000_000 {
         segment.write(&message);
     }
 }

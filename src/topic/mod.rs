@@ -1,10 +1,10 @@
-use std::fs::{self, OpenOptions, File};
+use std::fs::{self, File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::io::{self, Seek, SeekFrom, Write};
 
 use message::{self, Message};
 
-use bytes::{BytesMut, BufMut, Buf, IntoBuf, LittleEndian};
+use bytes::{Buf, BufMut, BytesMut, IntoBuf, LittleEndian};
 
 use codec::encode_message;
 use codec::decode_message;
@@ -44,7 +44,10 @@ pub trait Segment {
 }
 
 impl FileSegment {
-    pub fn with_directory<P>(directory: P) -> FileSegment where P: Into<PathBuf> {
+    pub fn with_directory<P>(directory: P) -> FileSegment
+    where
+        P: Into<PathBuf>,
+    {
         let directory = directory.into();
         fs::create_dir_all(directory.as_path()).expect("Error creating segment directory");
 
@@ -69,11 +72,16 @@ impl FileSegment {
             .expect(format!("Error creating {:?}", idx).as_str());
         let idx = RefCell::new(idx);
         let dat = RefCell::new(dat);
-        FileSegment { directory, dat, idx }
+        FileSegment {
+            directory,
+            dat,
+            idx,
+        }
     }
 
     pub fn with_temp_directory() -> FileSegment {
-        let directory = ::std::env::temp_dir().join(::uuid::Uuid::new_v4().hyphenated().to_string());
+        let directory =
+            ::std::env::temp_dir().join(::uuid::Uuid::new_v4().hyphenated().to_string());
         FileSegment::with_directory(directory)
     }
 
@@ -94,16 +102,22 @@ impl FileSegment {
     }
 
     pub fn iter(&self) -> FileSegmentIter {
-        let range = Range { start: 0, end: self.size() };
-        FileSegmentIter { range, segment: &self }
+        let range = Range {
+            start: 0,
+            end: self.size(),
+        };
+        FileSegmentIter {
+            range,
+            segment: &self,
+        }
     }
 }
 
 impl Segment for FileSegment {
     fn write(&self, message: &Message) {
         let mut header = BytesMut::with_capacity(4);
-        use ::message::MessageVisitor;
-        let calculator = ::message::BinaryFormatSizeCalculator{};
+        use message::MessageVisitor;
+        let calculator = ::message::BinaryFormatSizeCalculator {};
         let mut size = 0;
         calculator.visit_message(&message, &mut size);
         let mut contents = BytesMut::with_capacity(size);
@@ -129,13 +143,17 @@ impl Segment for FileSegment {
         }
         let mut header = [0u8; 4];
         let mut idx_borrow = self.idx.borrow_mut();
-        idx_borrow.seek(SeekFrom::Start((offset * 4) as u64)).unwrap();
+        idx_borrow
+            .seek(SeekFrom::Start((offset * 4) as u64))
+            .unwrap();
         use std::io::Read;
         idx_borrow.read_exact(&mut header[..]).unwrap();
         let mut header_bytes = ::bytes::Bytes::from(&header[..]).into_buf();
         let message_start = header_bytes.get_u32::<LittleEndian>();
         let mut dat_borrow = self.dat.borrow_mut();
-        dat_borrow.seek(SeekFrom::Start(message_start as u64)).unwrap();
+        dat_borrow
+            .seek(SeekFrom::Start(message_start as u64))
+            .unwrap();
         dat_borrow.read_exact(&mut header[..]).unwrap();
         let mut header_bytes = ::bytes::Bytes::from(&header[..]).into_buf();
         let message_size = header_bytes.get_u32::<LittleEndian>();
@@ -181,10 +199,10 @@ impl<'a> Iterator for FileSegmentIter<'a> {
             None => None,
         }
     }
-//
-//    fn skip(self, n: usize) -> Skip<Self> where Self: Sized {
-//        unimplemented!()
-//    }
+    //
+    //    fn skip(self, n: usize) -> Skip<Self> where Self: Sized {
+    //        unimplemented!()
+    //    }
 }
 
 impl<'a> DoubleEndedIterator for FileSegmentIter<'a> {
@@ -242,15 +260,14 @@ mod test {
     fn write_single_message() {
         let segment = FileSegment::with_temp_directory();
         let path = segment.directory().to_owned();
-        let message = Message::new()
-            .with_body("Hello, World")
-            .build();
+        let message = Message::new().with_body("Hello, World").build();
         segment.write(&message);
         drop(segment);
         let mut dat = OpenOptions::new()
             .read(true)
             .create(false)
-            .open(path.join("segment.dat")).unwrap();
+            .open(path.join("segment.dat"))
+            .unwrap();
         let _ = dat.seek(SeekFrom::Current(0)).unwrap();
 
         let mut buffer = [0u8; 4];
@@ -333,7 +350,11 @@ mod test {
         let mut counter = 0u32;
 
         for (offset, message) in segment.iter() {
-            eprintln!("offset: {}, iter = {:?}", offset, message.properties().get("iter").unwrap());
+            eprintln!(
+                "offset: {}, iter = {:?}",
+                offset,
+                message.properties().get("iter").unwrap()
+            );
             counter += 1;
         }
 
@@ -347,7 +368,11 @@ mod test {
         let segment = example_segment();
         let mut counter = 100u32;
         for (offset, message) in segment.iter().rev() {
-            eprintln!("offset: {}, iter = {:?}", offset, message.properties().get("iter").unwrap());
+            eprintln!(
+                "offset: {}, iter = {:?}",
+                offset,
+                message.properties().get("iter").unwrap()
+            );
             counter -= 1;
         }
         assert_eq!(counter, 0);
@@ -357,9 +382,7 @@ mod test {
     #[test]
     fn iterate_skip_messages() {
         let segment = example_segment();
-        for (index, message) in segment
-            .iter()
-            .skip(10).take_while(|&(index, _)| index < 15) {
+        for (index, message) in segment.iter().skip(10).take_while(|&(index, _)| index < 15) {
             eprintln!("index = {}, message = {:?}", index, message);
         }
         segment.delete().unwrap();
@@ -369,9 +392,7 @@ mod test {
     fn iterate_nth_messages() {
         let segment = example_segment();
         let mut counter = 0;
-        if let Some((index, _)) = segment
-            .iter()
-            .nth(10) {
+        if let Some((index, _)) = segment.iter().nth(10) {
             eprintln!("index = {:?}", index);
         }
 
@@ -384,8 +405,12 @@ mod test {
         let segment1 = example_segment();
         let segment2 = example_segment();
 
-       
-        for message in segment1.iter().skip(50).chain(segment2.iter()).map(|(_ ,message)| message) {
+        for message in segment1
+            .iter()
+            .skip(50)
+            .chain(segment2.iter())
+            .map(|(_, message)| message)
+        {
             eprintln!("message = {:?}", message);
         }
     }

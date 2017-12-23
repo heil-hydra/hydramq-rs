@@ -1,4 +1,3 @@
-
 bitflags! {
     pub struct Flags: u32 {
         const HAS_TIMESTAMP  = 0b00000001;
@@ -10,7 +9,7 @@ bitflags! {
 #[cfg(test)]
 mod test {
     use super::*;
-    
+
     #[test]
     fn flags_empty() {
         let empty = Flags::empty();
@@ -46,7 +45,10 @@ mod test {
     #[test]
     fn int_to_flags() {
         assert_eq!(Flags::from_bits(4).unwrap(), Flags::HAS_BODY);
-        assert_eq!(Flags::from_bits(6).unwrap(), Flags::HAS_BODY | Flags::HAS_PROPERTIES);
+        assert_eq!(
+            Flags::from_bits(6).unwrap(),
+            Flags::HAS_BODY | Flags::HAS_PROPERTIES
+        );
         assert_eq!(Flags::from_bits(7).unwrap(), Flags::all());
     }
 }

@@ -1,9 +1,10 @@
 mod message_set;
 
 use std;
-use std::fmt::{self};
+use std::fmt;
 
 use linked_hash_map::{Iter, LinkedHashMap};
+use uuid::Uuid;
 
 #[derive(Debug, PartialEq)]
 pub struct Message {
@@ -17,12 +18,17 @@ impl Message {
     }
 
     pub fn with_property<K, V>(key: K, value: V) -> MessageBuilder
-        where K: Into<String>, V: Into<Value> {
+    where
+        K: Into<String>,
+        V: Into<Value>,
+    {
         MessageBuilder::new().with_property(key.into(), value.into())
     }
 
     pub fn with_body<V>(value: V) -> MessageBuilder
-        where V: Into<Value> {
+    where
+        V: Into<Value>,
+    {
         MessageBuilder::new().with_body(value.into())
     }
 
@@ -45,23 +51,34 @@ pub struct MessageBuilder {
 
 impl MessageBuilder {
     pub fn new() -> MessageBuilder {
-        MessageBuilder { map: LinkedHashMap::new(), body: None }
+        MessageBuilder {
+            map: LinkedHashMap::new(),
+            body: None,
+        }
     }
 
     pub fn with_property<K, V>(mut self, key: K, value: V) -> MessageBuilder
-        where K: Into<String>, V: Into<Value> {
+    where
+        K: Into<String>,
+        V: Into<Value>,
+    {
         self.map.insert(key.into(), value.into());
         self
     }
 
     pub fn with_body<V>(mut self, value: V) -> MessageBuilder
-        where V: Into<Value> {
+    where
+        V: Into<Value>,
+    {
         self.body = Some(value.into());
         self
     }
 
     pub fn build(self) -> Message {
-        Message { properties: Map { map: self.map }, body: self.body }
+        Message {
+            properties: Map { map: self.map },
+            body: self.body,
+        }
     }
 }
 
@@ -72,7 +89,9 @@ pub struct Map {
 
 impl Map {
     pub fn new() -> MapBuilder {
-        MapBuilder { map: LinkedHashMap::new() }
+        MapBuilder {
+            map: LinkedHashMap::new(),
+        }
     }
 
     pub fn get(&self, key: &str) -> Option<&Value> {
@@ -100,7 +119,10 @@ pub struct MapBuilder {
 
 impl MapBuilder {
     pub fn insert<K, V>(mut self, key: K, value: V) -> MapBuilder
-        where K: Into<String>, V: Into<Value> {
+    where
+        K: Into<String>,
+        V: Into<Value>,
+    {
         self.map.insert(key.into(), value.into());
         self
     }
@@ -148,7 +170,10 @@ pub struct ListBuilder {
 }
 
 impl ListBuilder {
-    pub fn append<V>(mut self, value: V) -> ListBuilder where V: Into<Value> {
+    pub fn append<V>(mut self, value: V) -> ListBuilder
+    where
+        V: Into<Value>,
+    {
         self.list.push(value.into());
         self
     }
@@ -164,11 +189,13 @@ pub enum Value {
     String(String),
     Int64(i64),
     Int32(i32),
+    Float32(f32),
     Float64(f64),
     Boolean(bool),
     Bytes(Vec<u8>),
     List(List),
     Map(Map),
+    Uuid(Uuid),
 }
 
 impl From<String> for Value {
@@ -225,6 +252,12 @@ impl From<Map> for Value {
     }
 }
 
+impl From<Uuid> for Value {
+    fn from(value: Uuid) -> Self {
+        Value::Uuid(value)
+    }
+}
+
 pub trait MessageVisitor {
     type Output;
 
@@ -242,18 +275,20 @@ pub trait MessageVisitor {
 
     fn visit_int64(&self, value: i64, buffer: &mut Self::Output);
 
+    fn visit_float32(&self, value: f32, buffer: &mut Self::Output);
+
     fn visit_float64(&self, value: f64, buffer: &mut Self::Output);
 
     fn visit_boolean(&self, _value: bool, _buffer: &mut Self::Output);
 
     fn visit_string(&self, _value: &String, _buffer: &mut Self::Output);
 
+    fn visit_uuid(&self, value: &Uuid, buffer: &mut Self::Output);
+
     fn visit_null(&self, _buffer: &mut Self::Output);
 }
 
-pub struct BinaryFormatSizeCalculator {
-
-}
+pub struct BinaryFormatSizeCalculator {}
 
 impl MessageVisitor for BinaryFormatSizeCalculator {
     type Output = usize;
@@ -287,9 +322,7 @@ impl MessageVisitor for BinaryFormatSizeCalculator {
     fn visit_value(&self, value: &Value, buffer: &mut Self::Output) {
         *buffer += 1;
         match value {
-            &Value::Null => {
-                self.visit_null(buffer)
-            },
+            &Value::Null => self.visit_null(buffer),
             &Value::String(ref value) => {
                 self.visit_string(value, buffer);
             }
@@ -298,6 +331,9 @@ impl MessageVisitor for BinaryFormatSizeCalculator {
             }
             &Value::Int64(value) => {
                 self.visit_int64(value, buffer);
+            }
+            &Value::Float32(value) => {
+                self.visit_float32(value, buffer);
             }
             &Value::Float64(value) => {
                 self.visit_float64(value, buffer);
@@ -314,6 +350,9 @@ impl MessageVisitor for BinaryFormatSizeCalculator {
             &Value::List(ref value) => {
                 self.visit_list(value, buffer);
             }
+            &Value::Uuid(ref value) => {
+                self.visit_uuid(value, buffer);
+            }
         }
     }
 
@@ -329,6 +368,10 @@ impl MessageVisitor for BinaryFormatSizeCalculator {
         *buffer += 8;
     }
 
+    fn visit_float32(&self, _value: f32, buffer: &mut Self::Output) {
+        *buffer += 4;
+    }
+
     fn visit_float64(&self, _value: f64, buffer: &mut Self::Output) {
         *buffer += 8;
     }
@@ -341,7 +384,10 @@ impl MessageVisitor for BinaryFormatSizeCalculator {
         *buffer += 4 + value.len()
     }
 
-    fn visit_null(&self, _buffer: &mut Self::Output) {
+    fn visit_null(&self, _buffer: &mut Self::Output) {}
+
+    fn visit_uuid(&self, value: &Uuid, buffer: &mut Self::Output) {
+        *buffer += 16
     }
 }
 
@@ -353,17 +399,18 @@ mod tests {
     fn it_works() {
         let message = Message::new()
             .with_body("Hello")
-            .with_property("vehicles", List::new()
-                .append("Aprilia")
-                .append("Infiniti")
-                .build()
+            .with_property(
+                "vehicles",
+                List::new().append("Aprilia").append("Infiniti").build(),
             )
-            .with_property("address", Map::new()
-                .insert("street", "400 Beale ST")
-                .insert("city", "San Francisco")
-                .insert("state", "CA")
-                .insert("zip", "94105")
-                .build()
+            .with_property(
+                "address",
+                Map::new()
+                    .insert("street", "400 Beale ST")
+                    .insert("city", "San Francisco")
+                    .insert("state", "CA")
+                    .insert("zip", "94105")
+                    .build(),
             )
             .build();
         println!("message = {:?}", message);
@@ -397,10 +444,11 @@ mod tests {
 
     #[test]
     fn map_as_body() {
-        let m = Message::with_body(Map::new()
-            .insert("fname", "Jimmie")
-            .insert("lname", "Fulton")
-            .build()
+        let m = Message::with_body(
+            Map::new()
+                .insert("fname", "Jimmie")
+                .insert("lname", "Fulton")
+                .build(),
         ).build();
 
         println!("message = {:?}", &m);
@@ -410,13 +458,17 @@ mod tests {
                 assert_eq!(map.get("fname"), Some(&Value::from("Jimmie")));
                 assert_eq!(map.get("lname"), Some(&Value::from("Fulton")));
             }
-            _ => panic!("Map expected!")
+            _ => panic!("Map expected!"),
         }
     }
 
     #[test]
     fn list_index() {
-        let l = List::new().append("one").append("two").append("three").build();
+        let l = List::new()
+            .append("one")
+            .append("two")
+            .append("three")
+            .build();
         assert_eq!(l[0], Value::from("one"));
     }
 
@@ -437,13 +489,11 @@ mod tests {
     }
 
     #[test]
-    pub fn examples() {
-        
-    }
+    pub fn examples() {}
 
     #[test]
     fn binary_size_calulator() {
-        let calculator = BinaryFormatSizeCalculator{};
+        let calculator = BinaryFormatSizeCalculator {};
         let message = Message::with_body("Hello").build();
         let mut size = 0;
         calculator.visit_message(&message, &mut size);
@@ -452,12 +502,11 @@ mod tests {
 
     #[test]
     fn binary_size_calcuator_2() {
-        let calculator = BinaryFormatSizeCalculator{};
+        let calculator = BinaryFormatSizeCalculator {};
         let message = example();
         let mut size = 0;
         calculator.visit_message(&message, &mut size);
         eprintln!("size = {:?}", size);
-
     }
 
     fn example() -> Message {
@@ -466,23 +515,20 @@ mod tests {
             .with_property("lname", "Fulton")
             .with_property("age", 42)
             .with_property("temp", 98.6)
-            .with_property("vehicles", List::new()
-                .append("Aprilia")
-                .append("Infiniti")
-                .build()
+            .with_property(
+                "vehicles",
+                List::new().append("Aprilia").append("Infiniti").build(),
             )
-            .with_property("siblings",
-                           Map::new()
-                               .insert("brothers",
-                                       List::new()
-                                           .append("Jason").build()
-                               )
-                               .insert("sisters",
-                                       List::new()
-                                           .append("Laura")
-                                           .append("Sariah")
-                                           .build()
-                               ).build()
-            ).build()
+            .with_property(
+                "siblings",
+                Map::new()
+                    .insert("brothers", List::new().append("Jason").build())
+                    .insert(
+                        "sisters",
+                        List::new().append("Laura").append("Sariah").build(),
+                    )
+                    .build(),
+            )
+            .build()
     }
 }

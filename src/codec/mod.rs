@@ -6,6 +6,9 @@ pub fn encode_message(message: &::message::Message, buffer: &mut ::bytes::BytesM
     ::codec::encoder::BinaryMessageEncoder::encode_message(message, buffer);
 }
 
-pub fn decode_message<B>(bytes: &mut B) -> ::message::Message where B: ::bytes::Buf {
+pub fn decode_message<B>(bytes: &mut B) -> ::message::Message
+where
+    B: ::bytes::Buf,
+{
     ::codec::decoder::BinaryMessageDecoder::decode_message(bytes)
 }
