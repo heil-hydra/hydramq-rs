@@ -6,6 +6,8 @@ use std::fmt;
 use linked_hash_map::{Iter, LinkedHashMap};
 use uuid::Uuid;
 
+pub mod message;
+
 #[derive(Debug, PartialEq)]
 pub struct Message {
     properties: Map,
@@ -376,7 +378,7 @@ impl MessageVisitor for BinaryFormatSizeCalculator {
         *buffer += 8;
     }
 
-    fn visit_boolean(&self, value: bool, buffer: &mut Self::Output) {
+    fn visit_boolean(&self, _value: bool, buffer: &mut Self::Output) {
         *buffer += 1;
     }
 
@@ -384,11 +386,11 @@ impl MessageVisitor for BinaryFormatSizeCalculator {
         *buffer += 4 + value.len()
     }
 
-    fn visit_null(&self, _buffer: &mut Self::Output) {}
-
-    fn visit_uuid(&self, value: &Uuid, buffer: &mut Self::Output) {
+    fn visit_uuid(&self, _value: &Uuid, buffer: &mut Self::Output) {
         *buffer += 16
     }
+
+    fn visit_null(&self, _buffer: &mut Self::Output) {}
 }
 
 #[cfg(test)]

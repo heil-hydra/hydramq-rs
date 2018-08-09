@@ -1,6 +1,8 @@
 pub mod encoder;
 pub mod decoder;
 pub mod util;
+pub mod message_codec;
+pub mod simple;
 
 pub fn encode_message(message: &::message::Message, buffer: &mut ::bytes::BytesMut) {
     ::codec::encoder::BinaryMessageEncoder::encode_message(message, buffer);

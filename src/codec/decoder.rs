@@ -23,8 +23,8 @@ impl MessageDecoder for BinaryMessageDecoder {
     {
         let mut builder = Message::new();
         let flags =
-            Flags::from_bits(bytes.get_u32::<bytes::BigEndian>()).expect("Error reading flags");
-        if flags.contains(Flags::HAS_PROPERTIES) {
+            Flags::from_bits(bytes.get_i32::<bytes::BigEndian>()).expect("Error reading flags");
+        if flags.contains(Flags::HAS_HEADERS) {
             let property_count = bytes.get_u32::<bytes::BigEndian>();
             for _ in 0..property_count {
                 let key = self.decode_string(bytes);
@@ -46,6 +46,7 @@ impl MessageDecoder for BinaryMessageDecoder {
         use bytes::Buf;
         let len = bytes.get_u32::<bytes::BigEndian>();
         let mut value = String::with_capacity(len as usize);
+        bytes.take(20).
         bytes
             .take(len as usize)
             .reader()
@@ -58,6 +59,8 @@ impl MessageDecoder for BinaryMessageDecoder {
     where
         B: bytes::Buf,
     {
+        let value = bytes.take(16)
+            .collect();
         let mut buffer: [u8; 16] = [0; 16];
         use bytes::Buf;
         bytes
@@ -240,7 +243,7 @@ mod tests {
     #[test]
     fn decode_string_body() {
         let mut buffer = bytes::BytesMut::with_capacity(100);
-        buffer.put_u32::<bytes::BigEndian>(Flags::HAS_BODY.bits());
+        buffer.put_i32::<bytes::BigEndian>(Flags::HAS_BODY.bits());
         buffer.put_u8(1);
         buffer.put_u32::<bytes::BigEndian>(5);
         buffer.put_slice("Hello".as_ref());

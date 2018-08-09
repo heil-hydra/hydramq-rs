@@ -1,8 +1,10 @@
 bitflags! {
-    pub struct Flags: u32 {
-        const HAS_TIMESTAMP  = 0b00000001;
-        const HAS_PROPERTIES = 0b00000010;
-        const HAS_BODY       = 0b00000100;
+    pub struct Flags: i32 {
+        const HAS_TIMESTAMP      = 0b00000000000000000000000000000001;
+        const HAS_HEADERS        = 0b00000000000000000000000000000010;
+        const HAS_BODY           = 0b00000000000000000000000000000100;
+        const HAS_EXPIRATION     = 0b00000000000000000000000000001000;
+        const HAS_CORRELATION_ID = 0b00000000000000000000000000010000;
     }
 }
 
@@ -34,11 +36,11 @@ mod test {
         assert_eq!(0, flags.bits());
         flags.insert(Flags::HAS_TIMESTAMP);
         assert_eq!(1, flags.bits());
-        flags.insert(Flags::HAS_PROPERTIES);
+        flags.insert(Flags::HAS_HEADERS);
         assert_eq!(3, flags.bits());
         flags.insert(Flags::HAS_BODY);
         assert_eq!(7, flags.bits());
-        assert_eq!(2, Flags::HAS_PROPERTIES.bits());
+        assert_eq!(2, Flags::HAS_HEADERS.bits());
         assert_eq!(4, Flags::HAS_BODY.bits());
     }
 
@@ -47,8 +49,8 @@ mod test {
         assert_eq!(Flags::from_bits(4).unwrap(), Flags::HAS_BODY);
         assert_eq!(
             Flags::from_bits(6).unwrap(),
-            Flags::HAS_BODY | Flags::HAS_PROPERTIES
+            Flags::HAS_BODY | Flags::HAS_HEADERS
         );
-        assert_eq!(Flags::from_bits(7).unwrap(), Flags::all());
+        assert_eq!(Flags::from_bits(31).unwrap(), Flags::all());
     }
 }

@@ -1,4 +1,3 @@
-use std::slice::Iter;
 use message::Message;
 
 pub struct MessageSet {
@@ -7,9 +6,9 @@ pub struct MessageSet {
 }
 
 impl MessageSet {
-    pub fn index(&self) -> u64 {
-        self.index
-    }
+//    pub fn index(&self) -> u64 {
+//        self.index
+//    }
 
     pub fn iter(&self) -> MessageSetIter {
         MessageSetIter {
@@ -28,7 +27,7 @@ impl MessageSet {
     }
 }
 
-struct MessageSetIter<'a> {
+pub struct MessageSetIter<'a> {
     counter: usize,
     index: u64,
     messages: &'a Vec<Message>,
@@ -40,7 +39,6 @@ impl<'a> Iterator for MessageSetIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.messages.get(self.counter) {
             Some(message) => {
-                let current_counter = self.counter;
                 let current_index = self.index;
                 self.index += 1;
                 self.counter += 1;
@@ -83,7 +81,7 @@ mod tests {
 
     #[test]
     fn message_set_add() {
-        let mut message_set = MessageSet::starting_at(50)
+        let message_set = MessageSet::starting_at(50)
             .append(Message::with_body("Hello").build())
             .append(Message::with_body("World").build())
             .build();
@@ -94,7 +92,7 @@ mod tests {
             builder2 = builder2.append(Message::with_property("iter", i).build());
         }
 
-        let mut message_set2 = builder2.build();
+        let message_set2 = builder2.build();
 
         assert_eq!(message_set.len(), 2);
 

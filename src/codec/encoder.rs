@@ -50,13 +50,13 @@ impl MessageEncoder for BinaryMessageEncoder {
     fn encode_message(&self, message: &Message, buffer: &mut BytesMut) {
         let mut flags = util::Flags::empty();
         if message.properties().len() > 0 {
-            flags.insert(util::Flags::HAS_PROPERTIES);
+            flags.insert(util::Flags::HAS_HEADERS);
         }
         if message.body() != None {
             flags.insert(util::Flags::HAS_BODY);
         }
         buffer.reserve(4);
-        buffer.put_u32::<BigEndian>(flags.bits());
+        buffer.put_i32::<BigEndian>(flags.bits());
 
         if message.properties().len() > 0 {
             self.encode_map(message.properties(), buffer);
@@ -184,7 +184,7 @@ mod tests {
 
         let mut bytes = Cursor::new(buffer.freeze());
         assert!(bytes.has_remaining());
-        let flags = util::Flags::from_bits(bytes.get_u32::<BigEndian>()).unwrap();
+        let flags = util::Flags::from_bits(bytes.get_i32::<BigEndian>()).unwrap();
         assert!(flags.is_empty());
         assert!(!bytes.has_remaining());
     }
@@ -196,7 +196,7 @@ mod tests {
         BinaryMessageEncoder::encode_message(&message, &mut buffer);
         assert_eq!(buffer.len(), 14);
         let mut expected_buffer = BytesMut::with_capacity(13);
-        expected_buffer.put_u32::<BigEndian>(util::Flags::HAS_BODY.bits());
+        expected_buffer.put_i32::<BigEndian>(util::Flags::HAS_BODY.bits());
         let body = "Hello";
         expected_buffer.put_u8(1);
         expected_buffer.put_u32::<BigEndian>(body.len() as u32);

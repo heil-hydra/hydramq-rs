@@ -2,7 +2,7 @@ use std::fs::{self, File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::io::{self, Seek, SeekFrom, Write};
 
-use message::{self, Message};
+use message::{Message};
 
 use bytes::{Buf, BufMut, BytesMut, IntoBuf, LittleEndian};
 
@@ -11,7 +11,6 @@ use codec::decode_message;
 
 use std::cell::RefCell;
 use std::ops::Range;
-use std::iter::Skip;
 
 pub mod segment;
 
@@ -187,7 +186,7 @@ impl<'a> Iterator for FileSegmentIter<'a> {
         None
     }
 
-    fn nth(&mut self, mut n: usize) -> Option<Self::Item> {
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
         match self.range.nth(n) {
             Some(index) => {
                 let result = self.segment.read(index);
@@ -391,7 +390,7 @@ mod test {
     #[test]
     fn iterate_nth_messages() {
         let segment = example_segment();
-        let mut counter = 0;
+        let counter = 0;
         if let Some((index, _)) = segment.iter().nth(10) {
             eprintln!("index = {:?}", index);
         }
