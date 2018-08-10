@@ -67,6 +67,55 @@ impl<'a> Message<'a> {
     }
 }
 
+pub struct MessageBuilder<'a> {
+    message: Message<'a>,
+}
+
+impl<'a> MessageBuilder<'a> {
+    pub fn new() -> MessageBuilder<'a> {
+        MessageBuilder {
+            message: Message::new()
+        }
+    }
+
+    pub fn with_timestamp(mut self, timestamp: Timestamp) -> MessageBuilder<'a> {
+        self.message.set_timestamp(Some(timestamp));
+        self
+    }
+
+    pub fn with_expiration(mut self, expiration: Timestamp) -> MessageBuilder<'a> {
+        self.message.set_expiration(Some(expiration));
+        self
+    }
+
+    pub fn with_correlation_id(mut self, correlation_id: Uuid) -> MessageBuilder<'a> {
+        self.message.set_correlation_id(Some(correlation_id));
+        self
+    }
+
+    pub fn with_header<K, V>(mut self, key: K, value: V) -> MessageBuilder<'a>
+    where
+        K: Into<Key<'a>>,
+        V: Into<Value<'a>>,
+    {
+        self.message.headers_mut().insert(key.into(), value.into());
+        self
+    }
+
+    pub fn with_body<V>(mut self, body: V) -> MessageBuilder<'a>
+    where
+        V: Into<Value<'a>>,
+    {
+        self.message.set_body(Some(body.into()));
+        self
+    }
+
+
+    pub fn build(self) -> Message<'a> {
+        self.message
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Key<'a> {
     Str(Cow<'a, str>),
@@ -101,6 +150,8 @@ impl<'a> List<'a> {
         List { inner: Vec::new() }
     }
 
+    pub fn builder() -> ListBuilder<'a> { ListBuilder::new() }
+
     pub fn iter(&self) -> std::slice::Iter<Value<'a>> {
         self.inner.iter()
     }
@@ -114,6 +165,35 @@ impl<'a> List<'a> {
     }
 }
 
+pub struct ListBuilder<'a> {
+    list: List<'a>,
+}
+
+impl<'a> ListBuilder<'a> {
+    pub fn new() -> ListBuilder<'a> {
+        ListBuilder{ list: List::new() }
+    }
+
+    pub fn push<V>(mut self, value: V) -> ListBuilder<'a>
+        where
+            V: Into<Value<'a>>,
+    {
+        self.list.push(value.into());
+        self
+    }
+
+    pub fn push_mut<V>(&mut self, value: V)
+        where
+            V: Into<Value<'a>>,
+    {
+        self.list.push(value.into());
+    }
+
+    pub fn build(self) -> List<'a> {
+        self.list
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Map<'a> {
     inner: LinkedHashMap<Key<'a>, Value<'a>>,
@@ -121,7 +201,7 @@ pub struct Map<'a> {
 
 impl<'a> Map<'a> {
     pub fn new() -> Map<'a> {
-        Map { inner: LinkedHashMap::new() }
+        Map{ inner: LinkedHashMap::new() }
     }
 
     pub fn insert<K: Into<Key<'a>>, V: Into<Value<'a>>>(&mut self, key: K, value: V) {
@@ -138,6 +218,37 @@ impl<'a> Map<'a> {
 
     pub fn len(&self) -> usize {
         self.inner.len()
+    }
+}
+
+pub struct MapBuilder<'a> {
+    map: Map<'a>,
+}
+
+impl<'a> MapBuilder<'a> {
+    pub fn new() -> MapBuilder<'a> {
+        MapBuilder{ map: Map::new() }
+    }
+
+    pub fn insert<K, V>(mut self, key: K, value: V) -> MapBuilder<'a>
+        where
+            K: Into<Key<'a>>,
+            V: Into<Value<'a>>,
+    {
+        self.map.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn insert_mut<K, V>(&mut self, key: K, value: V)
+        where
+            K: Into<Key<'a>>,
+            V: Into<Value<'a>>,
+    {
+        self.map.insert(key.into(), value.into());
+    }
+
+    pub fn build(self) -> Map<'a> {
+        self.map
     }
 }
 
@@ -198,6 +309,18 @@ impl<'a> From<bool> for Value<'a> {
     fn from(value: bool) -> Self {
         Value::Bool(value)
     }
+}
+
+impl<'a> From<Map<'a>> for Value<'a> {
+    fn from(value: Map<'a>) -> Self { Value::Map(value) }
+}
+
+impl<'a> From<List<'a>> for Value<'a> {
+    fn from(value: List<'a>) -> Self { Value::List(value) }
+}
+
+impl<'a> From<Timestamp> for Value<'a> {
+    fn from(value: Timestamp) -> Self { Value::Timestamp(value) }
 }
 
 pub type Timestamp = DateTime<UTC>;

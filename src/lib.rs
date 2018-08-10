@@ -12,4 +12,4 @@ extern crate serde_bytes;
 
 pub mod codec;
 pub mod message;
-pub mod topic;
+//pub mod topic;
