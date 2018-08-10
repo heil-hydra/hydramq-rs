@@ -4,6 +4,7 @@ use std::io::Read;
 use message::{List, Map, Message, Value};
 use codec::util::*;
 use uuid::Uuid;
+use bytes::Buf;
 
 pub struct BinaryMessageDecoder {}
 
@@ -23,9 +24,9 @@ impl MessageDecoder for BinaryMessageDecoder {
     {
         let mut builder = Message::new();
         let flags =
-            Flags::from_bits(bytes.get_i32::<bytes::BigEndian>()).expect("Error reading flags");
+            Flags::from_bits(bytes.get_i32_be()).expect("Error reading flags");
         if flags.contains(Flags::HAS_HEADERS) {
-            let property_count = bytes.get_u32::<bytes::BigEndian>();
+            let property_count = bytes.get_u32_be();
             for _ in 0..property_count {
                 let key = self.decode_string(bytes);
                 let value = self.decode_value(bytes);
@@ -43,32 +44,17 @@ impl MessageDecoder for BinaryMessageDecoder {
     where
         B: bytes::Buf,
     {
-        use bytes::Buf;
-        let len = bytes.get_u32::<bytes::BigEndian>();
-        let mut value = String::with_capacity(len as usize);
-        bytes.take(20).
-        bytes
-            .take(len as usize)
-            .reader()
-            .read_to_string(&mut value)
-            .unwrap();
-        value
+        let len = bytes.get_u32_be();
+
+        String::from_utf8(bytes.take(len as usize).collect()).unwrap()
     }
 
     fn decode_uuid<B>(&self, bytes: &mut B) -> Uuid
     where
         B: bytes::Buf,
     {
-        let value = bytes.take(16)
-            .collect();
-        let mut buffer: [u8; 16] = [0; 16];
-        use bytes::Buf;
-        bytes
-            .take(16)
-            .reader()
-            .read_exact(&mut buffer)
-            .unwrap();
-        Uuid::from_bytes(&buffer).unwrap()
+        let bytes: Vec<u8> = bytes.take(16).collect();
+        Uuid::from_bytes(&bytes).unwrap()
     }
 
     fn decode_value<B>(&self, bytes: &mut B) -> Value
@@ -95,28 +81,28 @@ impl MessageDecoder for BinaryMessageDecoder {
     where
         B: bytes::Buf,
     {
-        bytes.get_i32::<bytes::BigEndian>()
+        bytes.get_i32_be()
     }
 
     fn decode_i64<B>(&self, bytes: &mut B) -> i64
     where
         B: bytes::Buf,
     {
-        bytes.get_i64::<bytes::BigEndian>()
+        bytes.get_i64_be()
     }
 
     fn decode_f32<B>(&self, bytes: &mut B) -> f32
     where
         B: bytes::Buf,
     {
-        bytes.get_f32::<bytes::BigEndian>()
+        bytes.get_f32_be()
     }
 
     fn decode_f64<B>(&self, bytes: &mut B) -> f64
     where
         B: bytes::Buf,
     {
-        bytes.get_f64::<bytes::BigEndian>()
+        bytes.get_f64_be()
     }
 
     fn decode_bool<B>(&self, bytes: &mut B) -> bool
@@ -133,7 +119,7 @@ impl MessageDecoder for BinaryMessageDecoder {
         B: bytes::Buf,
     {
         let mut builder = List::new();
-        let item_count = bytes.get_u32::<bytes::BigEndian>();
+        let item_count = bytes.get_u32_be();
         for _ in 0..item_count {
             builder = builder.append(self.decode_value(bytes));
         }
@@ -145,7 +131,7 @@ impl MessageDecoder for BinaryMessageDecoder {
         B: bytes::Buf,
     {
         let mut builder = Map::new();
-        let item_count = bytes.get_u32::<bytes::BigEndian>();
+        let item_count = bytes.get_u32_be();
         for _ in 0..item_count {
             builder = builder.insert(self.decode_string(bytes), self.decode_value(bytes));
         }
@@ -155,7 +141,7 @@ impl MessageDecoder for BinaryMessageDecoder {
     fn decode_bytes<B>(&self, bytes: &mut B) -> Vec<u8> where
         B: bytes::Buf {
 
-        let len = bytes.get_u32::<bytes::BigEndian>();
+        let len = bytes.get_u32_be();
         let mut value = vec![0u8; len as usize];
         use bytes::Buf;
         bytes
@@ -227,9 +213,9 @@ mod tests {
     #[test]
     fn read_length_prefixed_string() {
         let mut buffer = bytes::BytesMut::with_capacity(12);
-        buffer.put_u32::<bytes::BigEndian>(5);
+        buffer.put_u32_be(5);
         buffer.put_slice("Hello".as_ref());
-        buffer.put_u32::<bytes::BigEndian>(5);
+        buffer.put_u32_be(5);
         buffer.put_slice("World".as_ref());
 
         let mut bytes = buffer.freeze().into_buf();
@@ -243,9 +229,9 @@ mod tests {
     #[test]
     fn decode_string_body() {
         let mut buffer = bytes::BytesMut::with_capacity(100);
-        buffer.put_i32::<bytes::BigEndian>(Flags::HAS_BODY.bits());
+        buffer.put_i32_be(Flags::HAS_BODY.bits());
         buffer.put_u8(1);
-        buffer.put_u32::<bytes::BigEndian>(5);
+        buffer.put_u32_be(5);
         buffer.put_slice("Hello".as_ref());
 
         let message = decode(buffer);

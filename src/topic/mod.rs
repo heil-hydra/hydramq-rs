@@ -4,7 +4,7 @@ use std::io::{self, Seek, SeekFrom, Write};
 
 use message::{Message};
 
-use bytes::{Buf, BufMut, BytesMut, IntoBuf, LittleEndian};
+use bytes::{Buf, BufMut, BytesMut, IntoBuf};
 
 use codec::encode_message;
 use codec::decode_message;
@@ -123,7 +123,7 @@ impl Segment for FileSegment {
         let mut dat_borrow = self.dat.borrow_mut();
         let message_start = dat_borrow.seek(SeekFrom::End(0)).unwrap();
         encode_message(message, &mut contents);
-        header.put_u32::<LittleEndian>(contents.len() as u32);
+        header.put_u32_le(contents.len() as u32);
         let header = header.freeze();
         let contents = contents.freeze();
 
@@ -132,7 +132,7 @@ impl Segment for FileSegment {
         let mut idx_borrow = self.idx.borrow_mut();
         idx_borrow.seek(SeekFrom::End(0)).unwrap();
         let mut message_start_buffer = BytesMut::with_capacity(4);
-        message_start_buffer.put_u32::<LittleEndian>(message_start as u32);
+        message_start_buffer.put_u32_le(message_start as u32);
         idx_borrow.write_all(&mut message_start_buffer).unwrap();
     }
 
@@ -148,14 +148,14 @@ impl Segment for FileSegment {
         use std::io::Read;
         idx_borrow.read_exact(&mut header[..]).unwrap();
         let mut header_bytes = ::bytes::Bytes::from(&header[..]).into_buf();
-        let message_start = header_bytes.get_u32::<LittleEndian>();
+        let message_start = header_bytes.get_u32_le();
         let mut dat_borrow = self.dat.borrow_mut();
         dat_borrow
             .seek(SeekFrom::Start(message_start as u64))
             .unwrap();
         dat_borrow.read_exact(&mut header[..]).unwrap();
         let mut header_bytes = ::bytes::Bytes::from(&header[..]).into_buf();
-        let message_size = header_bytes.get_u32::<LittleEndian>();
+        let message_size = header_bytes.get_u32_le();
         let mut message_buffer = vec![0u8; message_size as usize];
         dat_borrow.read_exact(&mut message_buffer[..]).unwrap();
         let mut message_bytes = message_buffer.into_buf();
@@ -274,7 +274,7 @@ mod test {
         dat.read_exact(&mut buffer[..]).unwrap();
         let mut bytes = ::bytes::Bytes::from(&buffer[..]).into_buf();
 
-        let message_size = bytes.get_u32::<LittleEndian>();
+        let message_size = bytes.get_u32_le();
 
         let mut buf = vec![0u8; message_size as usize];
         dat.read_exact(&mut buf[..]).unwrap();

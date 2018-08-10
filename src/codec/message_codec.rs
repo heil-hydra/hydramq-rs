@@ -4,7 +4,7 @@ use message::message::Value;
 use message::message::Map;
 use message::message::List;
 use message::message::Timestamp;
-use bytes::{BigEndian, BufMut, BytesMut, Buf};
+use bytes::{BufMut, BytesMut, Buf};
 use std::str;
 use std::cell::Cell;
 use codec::util;
@@ -215,7 +215,7 @@ impl<'a> MessageVisitor<'a> for Encoder {
             flags.insert(util::Flags::HAS_BODY);
         }
 
-        buffer.put_i32::<BigEndian>(flags.bits());
+        buffer.put_i32_be(flags.bits());
 
         if let Some(timestamp) = message.timestamp() {
             self.visit_timestamp(timestamp, buffer);
@@ -239,7 +239,7 @@ impl<'a> MessageVisitor<'a> for Encoder {
     }
 
     fn visit_map(&self, map: &Map, buffer: &'a mut BytesMut) {
-        buffer.put_i32::<BigEndian>(map.len() as i32);
+        buffer.put_i32_be(map.len() as i32);
         for (key, value) in map.iter() {
             self.visit_key(key, buffer);
             self.visit_value(value, buffer);
@@ -247,7 +247,7 @@ impl<'a> MessageVisitor<'a> for Encoder {
     }
 
     fn visit_list(&self, list: &List, buffer: &'a mut BytesMut) {
-        buffer.put_i32::<BigEndian>(list.len() as i32);
+        buffer.put_i32_be(list.len() as i32);
         for value in list.iter() {
             self.visit_value(value, buffer);
         }
@@ -311,24 +311,24 @@ impl<'a> MessageVisitor<'a> for Encoder {
     }
 
     fn visit_bytes(&self, value: &[u8], buffer: &'a mut BytesMut) {
-        buffer.put_u32::<BigEndian>(value.len() as u32);
+        buffer.put_u32_be(value.len() as u32);
         buffer.put_slice(value);
     }
 
     fn visit_i32(&self, value: i32, buffer: &'a mut BytesMut) {
-        buffer.put_i32::<BigEndian>(value);
+        buffer.put_i32_be(value);
     }
 
     fn visit_i64(&self, value: i64, buffer: &'a mut BytesMut) {
-        buffer.put_i64::<BigEndian>(value);
+        buffer.put_i64_be(value);
     }
 
     fn visit_f32(&self, value: f32, buffer: &'a mut BytesMut) {
-        buffer.put_f32::<BigEndian>(value);
+        buffer.put_f32_be(value);
     }
 
     fn visit_f64(&self, value: f64, buffer: &'a mut BytesMut) {
-        buffer.put_f64::<BigEndian>(value);
+        buffer.put_f64_be(value);
     }
 
     fn visit_bool(&self, value: bool, buffer: &'a mut BytesMut) {
@@ -336,7 +336,7 @@ impl<'a> MessageVisitor<'a> for Encoder {
     }
 
     fn visit_str(&self, value: &'a str, buffer: &'a mut BytesMut) {
-        buffer.put_u32::<BigEndian>(value.len() as u32);
+        buffer.put_u32_be(value.len() as u32);
         buffer.put_slice(value.as_bytes());
     }
 
@@ -345,14 +345,15 @@ impl<'a> MessageVisitor<'a> for Encoder {
     }
 
     fn visit_timestamp(&self, value: Timestamp, buffer: &'a mut BytesMut) {
-        buffer.put_i64::<BigEndian>(value.timestamp());
-        buffer.put_i32::<BigEndian>(value.timestamp_subsec_millis() as i32);
+        buffer.put_i64_be(value.timestamp());
+        buffer.put_i32_be(value.timestamp_subsec_millis() as i32);
     }
 
     fn visit_null(&self, _buffer: &'a mut BytesMut) {
         ()
     }
 }
+
 
 pub struct Decoder;
 
@@ -457,19 +458,19 @@ impl<'a> ZeroCursor<'a> {
     }
 
     pub fn get_i32(&'a self) -> i32 {
-        Cursor::new(self.get_bytes(4)).get_i32::<BigEndian>()
+        Cursor::new(self.get_bytes(4)).get_i32_be()
     }
 
     pub fn get_i64(&'a self) -> i64 {
-        Cursor::new(self.get_bytes(8)).get_i64::<BigEndian>()
+        Cursor::new(self.get_bytes(8)).get_i64_be()
     }
 
     pub fn get_f32(&'a self) -> f32 {
-        Cursor::new(self.get_bytes(4)).get_f32::<BigEndian>()
+        Cursor::new(self.get_bytes(4)).get_f32_be()
     }
 
     pub fn get_f64(&'a self) -> f64 {
-        Cursor::new(self.get_bytes(8)).get_f64::<BigEndian>()
+        Cursor::new(self.get_bytes(8)).get_f64_be()
     }
 
     pub fn get_u8(&'a self) -> u8 {
@@ -495,8 +496,8 @@ impl<'a> ZeroCursor<'a> {
     fn get_timestamp(&'a self) -> Timestamp {
         let mut cursor = Cursor::new(self.get_bytes(12));
         UTC.timestamp(
-            cursor.get_i64::<BigEndian>(),
-            cursor.get_i32::<BigEndian>() as u32,
+            cursor.get_i64_be(),
+            cursor.get_i32_be() as u32,
         )
     }
 
@@ -597,8 +598,6 @@ mod tests {
 
         let decoder = Decoder;
 
-        let output = decoder.decode_message(&cursor);
-
+        let _output = decoder.decode_message(&cursor);
     }
-
 }

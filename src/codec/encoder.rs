@@ -5,7 +5,7 @@ use message::Value;
 
 use codec::util;
 
-use bytes::{BigEndian, BufMut, BytesMut};
+use bytes::{BufMut, BytesMut};
 use uuid::Uuid;
 
 pub struct BinaryMessageEncoder();
@@ -22,19 +22,19 @@ impl BinaryMessageEncoder {
 
 impl MessageEncoder for BinaryMessageEncoder {
     fn encode_int32(&self, value: i32, buffer: &mut BytesMut) {
-        buffer.put_i32::<BigEndian>(value);
+        buffer.put_i32_be(value);
     }
 
     fn encode_int64(&self, value: i64, buffer: &mut BytesMut) {
-        buffer.put_i64::<BigEndian>(value);
+        buffer.put_i64_be(value);
     }
 
     fn encode_float32(&self, value: f32, buffer: &mut BytesMut) {
-        buffer.put_f32::<BigEndian>(value);
+        buffer.put_f32_be(value);
     }
 
     fn encode_float64(&self, value: f64, buffer: &mut BytesMut) {
-        buffer.put_f64::<BigEndian>(value);
+        buffer.put_f64_be(value);
     }
 
     fn encode_boolean(&self, value: bool, buffer: &mut BytesMut) {
@@ -43,7 +43,7 @@ impl MessageEncoder for BinaryMessageEncoder {
 
     fn encode_string(&self, value: &String, buffer: &mut BytesMut) {
         buffer.reserve(value.len() + 4);
-        buffer.put_u32::<BigEndian>(value.len() as u32);
+        buffer.put_u32_be(value.len() as u32);
         buffer.put_slice(value.as_bytes());
     }
 
@@ -56,7 +56,7 @@ impl MessageEncoder for BinaryMessageEncoder {
             flags.insert(util::Flags::HAS_BODY);
         }
         buffer.reserve(4);
-        buffer.put_i32::<BigEndian>(flags.bits());
+        buffer.put_i32_be(flags.bits());
 
         if message.properties().len() > 0 {
             self.encode_map(message.properties(), buffer);
@@ -115,7 +115,7 @@ impl MessageEncoder for BinaryMessageEncoder {
 
     fn encode_map(&self, map: &Map, buffer: &mut BytesMut) {
         buffer.reserve(4);
-        buffer.put_u32::<BigEndian>(map.len() as u32);
+        buffer.put_u32_be(map.len() as u32);
         for (key, value) in map.iter() {
             self.encode_string(key, buffer);
             self.encode_value(value, buffer);
@@ -123,14 +123,14 @@ impl MessageEncoder for BinaryMessageEncoder {
     }
     fn encode_list(&self, list: &List, buffer: &mut BytesMut) {
         buffer.reserve(4);
-        buffer.put_u32::<BigEndian>(list.len() as u32);
+        buffer.put_u32_be(list.len() as u32);
         for item in list.iter() {
             self.encode_value(item, buffer);
         }
     }
     fn encode_bytes(&self, value: &Vec<u8>, buffer: &mut BytesMut) {
         buffer.reserve(value.len() + 4);
-        buffer.put_u32::<BigEndian>(value.len() as u32);
+        buffer.put_u32_be(value.len() as u32);
         buffer.put_slice(value);
     }
 
@@ -184,7 +184,7 @@ mod tests {
 
         let mut bytes = Cursor::new(buffer.freeze());
         assert!(bytes.has_remaining());
-        let flags = util::Flags::from_bits(bytes.get_i32::<BigEndian>()).unwrap();
+        let flags = util::Flags::from_bits(bytes.get_i32_be()).unwrap();
         assert!(flags.is_empty());
         assert!(!bytes.has_remaining());
     }
@@ -196,10 +196,10 @@ mod tests {
         BinaryMessageEncoder::encode_message(&message, &mut buffer);
         assert_eq!(buffer.len(), 14);
         let mut expected_buffer = BytesMut::with_capacity(13);
-        expected_buffer.put_i32::<BigEndian>(util::Flags::HAS_BODY.bits());
+        expected_buffer.put_i32_be(util::Flags::HAS_BODY.bits());
         let body = "Hello";
         expected_buffer.put_u8(1);
-        expected_buffer.put_u32::<BigEndian>(body.len() as u32);
+        expected_buffer.put_u32_be(body.len() as u32);
         expected_buffer.put_slice(body.as_bytes());
         assert_eq!(buffer, expected_buffer);
     }
