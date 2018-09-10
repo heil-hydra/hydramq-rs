@@ -219,6 +219,10 @@ impl<'a> Map<'a> {
     pub fn len(&self) -> usize {
         self.inner.len()
     }
+
+    pub fn contains_key(&self, key: &Key<'a>) -> bool {
+        self.inner.contains_key(key)
+    }
 }
 
 pub struct MapBuilder<'a> {

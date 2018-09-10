@@ -5,7 +5,6 @@ use message::message::Map;
 use message::message::List;
 use message::message::Timestamp;
 use std::str;
-use std::cell::Cell;
 use uuid::Uuid;
 use chrono::prelude::*;
 
