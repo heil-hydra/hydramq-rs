@@ -74,7 +74,7 @@ fn example() -> Message {
             .append("Aprilia")
             .append("Infiniti")
             .build()
-        )
+            )
         .with_property("siblings",
                        Map::new()
                            .insert("brothers",

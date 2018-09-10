@@ -6,9 +6,6 @@ pub struct MessageSet {
 }
 
 impl MessageSet {
-//    pub fn index(&self) -> u64 {
-//        self.index
-//    }
 
     pub fn iter(&self) -> MessageSetIter {
         MessageSetIter {
