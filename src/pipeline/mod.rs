@@ -1,5 +1,5 @@
 use linked_hash_map::LinkedHashMap;
-use message::message::{Message, Key};
+use message::message::{Message, Key, Value};
 
 pub struct Pipeline {
     handlers: LinkedHashMap<String, Box<Handler>>,
@@ -8,7 +8,6 @@ pub struct Pipeline {
 impl Pipeline {
     fn process(&self, message: Message) {
         let mut context = PipelineContext::new(&self, message);
-
 
         for (key, handler) in self.handlers.iter() {
             context.set_handler_key(key);
@@ -107,15 +106,30 @@ mod tests {
         }
     }
 
+    struct DebugHandler;
+
+    impl Handler for DebugHandler {
+        fn handle_downstream(&self, context: &mut PipelineContext) {
+            println!("Handler: {:?} (downstream), Message: {:?}", context.handler_key(), context.message());
+        }
+
+        fn handle_upstream(&self, context: &mut PipelineContext) {
+        }
+    }
+
     #[test]
     fn test_api() {
         let mut builder = PipelineBuilder::default();
         builder.append_handler("Heartbeat".to_owned(), Box::new(HeartbeatHandler));
+        builder.append_handler("Debug".to_owned(), Box::new(DebugHandler));
 
         let pipeline = builder.build();
 
-        let mut message = Message::new();
-        message.headers_mut().insert("first", true);
-        pipeline.process(message);
+        for i in 0 .. 1000 {
+            let mut message = Message::new();
+            message.set_body(Some(Value::from(i)));
+            message.headers_mut().insert("first", true);
+            pipeline.process(message);
+        }
     }
 }
