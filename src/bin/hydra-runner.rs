@@ -1,7 +1,7 @@
 extern crate hydramq;
 extern crate bytes;
 
-use bytes::{IntoBuf};
+//use bytes::{IntoBuf};
 
 use hydramq::message::{Message, List, Map};
 

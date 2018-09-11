@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn codec_empty_message() {
-        let mut message = MessageBuilder::new()
+        let message = MessageBuilder::new()
             .with_timestamp(UTC::now())
             .with_expiration(UTC::now())
             .with_header("key", "value")
